@@ -111,7 +111,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
             int i = 0;
             chars[i++] = '(';
             chars[i++] = ' ';
-            foreach(byte b in array)
+            foreach (byte b in array)
             {
                 chars[i++] = HexadecimalNibble((byte)(b >> 4)); //get every byte char in Hex X2 representation.
                 chars[i++] = HexadecimalNibble((byte)(b & 0xF));
@@ -122,7 +122,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
             return new string(chars);
         }
 
-        
+
 
         public static string CreateVersionString(Version version)
         {
@@ -238,7 +238,8 @@ namespace System.Reflection.Metadata.Cil.Decoder
                     case OperandType.InlineMethod:
                         intOperand = ilReader.ReadInt32();
                         string methodCall = SolveMethodName(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, methodCall, intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        var parentType = GetParentType(metadataReader, intOperand, provider);
+                        instruction = new CilStringInstruction_InlineMethod(opCode, methodCall, parentType, intOperand, expectedSize + (int)CilInstructionSize.Int32);
                         break;
                     case OperandType.InlineType:
                         intOperand = ilReader.ReadInt32();
@@ -367,7 +368,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
                 return methodDefinition.GetParameter(token).Name;
             }
             return methodDefinition.GetLocal(token).Name;
-            
+
         }
 
         private static string GetInlineTokenType(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
@@ -470,10 +471,52 @@ namespace System.Reflection.Metadata.Cil.Decoder
                 MethodSignature<CilType> signature = SignatureDecoder.DecodeMethodSignature(reference.Signature, provider);
                 signatureValue = GetMethodReturnType(signature);
                 parameters = provider.GetParameterList(signature);
-                return String.Format("{0} {1}::{2}{3}{4}", signatureValue, type, GetString(metadataReader, reference.Name), genericParameterSignature,parameters);
+                return String.Format("{0} {1}::{2}{3}{4}", signatureValue, type, GetString(metadataReader, reference.Name), genericParameterSignature, parameters);
             }
             signatureValue = SignatureDecoder.DecodeFieldSignature(reference.Signature, provider).ToString();
             return String.Format("{0} {1}::{2}{3}", signatureValue, type, GetString(metadataReader, reference.Name), parameters);
+        }
+
+        internal static CilType GetParentType(MetadataReader metadataReader, int token, CilTypeProvider provider)
+        {
+            if (IsMethodSpecification(token))
+            {
+                var methodHandle = MetadataTokens.MethodSpecificationHandle(token);
+                var methodSpec = metadataReader.GetMethodSpecification(methodHandle);
+                token = MetadataTokens.GetToken(methodSpec.Method);
+            }
+            if (IsMemberReference(token))
+            {
+                var refHandle = MetadataTokens.MemberReferenceHandle(token);
+                var reference = metadataReader.GetMemberReference(refHandle);
+                var parentToken = MetadataTokens.GetToken(reference.Parent);
+
+                if (IsTypeSpecification(parentToken))
+                {
+                    var typeSpecificationHandle = MetadataTokens.TypeSpecificationHandle(parentToken);
+                    var type = SignatureDecoder.DecodeType(typeSpecificationHandle, provider, null);
+                    type.Token = parentToken;
+
+
+                    Console.WriteLine("We found a typeSpec:" + type.Name);
+                    return type;
+                }
+                else
+                {
+                    var parentHandle = MetadataTokens.TypeReferenceHandle(parentToken);
+                    var type = SignatureDecoder.DecodeType(parentHandle, provider, null);
+
+                    type.Token = parentToken;
+                    return type;
+                }
+            }
+
+            var handle = MetadataTokens.MethodDefinitionHandle(token);
+            var definition = metadataReader.GetMethodDefinition(handle);
+            var parent = definition.GetDeclaringType();
+            var parentType = SignatureDecoder.DecodeType(parent, provider, null);
+            parentType.Token = MetadataTokens.GetToken(parent);
+            return parentType;
         }
 
         internal static string SolveMethodName(MetadataReader metadataReader, int token, CilTypeProvider provider)
@@ -497,7 +540,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
             var returnType = GetMethodReturnType(signature);
             var parameters = provider.GetParameterList(signature);
             var parentType = SignatureDecoder.DecodeType(parent, provider, null);
-            return string.Format("{0} {1}::{2}{3}{4}",returnType, parentType.ToString(false), GetString(metadataReader, definition.Name), genericParameters, parameters);
+            return string.Format("{0} {1}::{2}{3}{4}", returnType, parentType.ToString(false), GetString(metadataReader, definition.Name), genericParameters, parameters);
         }
 
         private static string GetGenericParametersSignature(MethodSpecification methodSpec, CilTypeProvider provider)
@@ -505,16 +548,16 @@ namespace System.Reflection.Metadata.Cil.Decoder
             var genericParameters = SignatureDecoder.DecodeMethodSpecificationSignature(methodSpec.Signature, provider);
             StringBuilder sb = new StringBuilder();
             int i;
-            for(i = 0; i < genericParameters.Length; i++)
+            for (i = 0; i < genericParameters.Length; i++)
             {
-                if(i == 0)
+                if (i == 0)
                 {
                     sb.Append("<");
                 }
                 sb.Append(genericParameters[i]);
                 sb.Append(",");
             }
-            if(i > 0)
+            if (i > 0)
             {
                 sb.Length--;
                 sb.Append(">");
@@ -524,7 +567,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
 
         private static string GetFieldInformation(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
         {
-            if(IsMemberReference(intOperand))
+            if (IsMemberReference(intOperand))
             {
                 return GetMemberRef(metadataReader, intOperand, provider);
             }

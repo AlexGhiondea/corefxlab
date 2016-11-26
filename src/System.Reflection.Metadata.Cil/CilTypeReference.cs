@@ -26,7 +26,7 @@ namespace System.Reflection.Metadata.Cil
             return type;
         }
 
-        internal int Token
+        public int Token
         {
             get
             {

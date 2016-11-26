@@ -25,27 +25,27 @@ namespace System.Reflection.Metadata.Cil.Decoder
             _reader = reader;
         }
 
-#region Public APIs
+        #region Public APIs
 
         public CilType GetArrayType(CilType elementType, ArrayShape shape)
         {
             elementType.Append("[");
-            for(int i = 0; i < shape.Rank; i++)
+            for (int i = 0; i < shape.Rank; i++)
             {
                 int lowerBound = 0;
-                if(i < shape.LowerBounds.Length)
+                if (i < shape.LowerBounds.Length)
                 {
                     lowerBound = shape.LowerBounds[i];
                     elementType.Append(lowerBound.ToString());
                     elementType.Append("...");
                 }
 
-                if(i < shape.Sizes.Length)
+                if (i < shape.Sizes.Length)
                 {
                     elementType.Append((lowerBound + shape.Sizes[i] - 1).ToString());
                 }
 
-                if( i < shape.Rank -1)
+                if (i < shape.Rank - 1)
                 {
                     elementType.Append(",");
                 }
@@ -72,11 +72,11 @@ namespace System.Reflection.Metadata.Cil.Decoder
         public CilType GetGenericInstance(CilType genericType, ImmutableArray<CilType> typeArguments)
         {
             genericType.Append("<");
-            for(int i = 0; i < typeArguments.Length; i++)
+            for (int i = 0; i < typeArguments.Length; i++)
             {
                 var typeArgument = typeArguments[i];
                 genericType.Append(typeArgument.ToString());
-                if(i < typeArguments.Length - 1)
+                if (i < typeArguments.Length - 1)
                 {
                     genericType.Append(",");
                 }
@@ -198,7 +198,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
             bool _isValueType = (code == (byte)SignatureTypeHandleCode.Class);
             bool _isClass = (code == (byte)SignatureTypeHandleCode.ValueType);
 
-            CilType type = new CilType(GetFullName(Reader.GetTypeDefinition(handle)), _isValueType, _isClass);
+            CilType type = new CilType(GetFullName(Reader.GetTypeDefinition(handle)), _isValueType, _isClass, -1, TypeType.Def);
             return type;
         }
 
@@ -207,13 +207,15 @@ namespace System.Reflection.Metadata.Cil.Decoder
             bool _isValueType = (code == (byte)SignatureTypeHandleCode.Class);
             bool _isClass = (code == (byte)SignatureTypeHandleCode.ValueType);
 
-            CilType type = new CilType(GetFullName(Reader.GetTypeReference(handle)), _isValueType, _isClass);
+            CilType type = new CilType(GetFullName(Reader.GetTypeReference(handle)), _isValueType, _isClass, -1, TypeType.Ref);
             return type;
         }
 
         public CilType GetTypeFromSpecification(MetadataReader reader, TypeSpecificationHandle handle, byte code)
         {
-            return Reader.GetTypeSpecification(handle).DecodeSignature(this);
+            var ts = Reader.GetTypeSpecification(handle).DecodeSignature(this);
+            ts.Type = TypeType.Spec;
+            return ts;
         }
 
         public string GetParameterList(MethodSignature<CilType> signature, ParameterHandleCollection? parameters = null)
@@ -248,28 +250,28 @@ namespace System.Reflection.Metadata.Cil.Decoder
             for (; i < types.Length; i++)
             {
                 sb.Append(types[i].ToString());
-                if(i < types.Length -1)
+                if (i < types.Length - 1)
                     sb.Append(",");
             }
             sb.Append(")");
             return sb.ToString();
         }
 
-#endregion
+        #endregion
 
-#region Private helper methods
+        #region Private helper methods
 
         internal string[] GetParameterNames(ParameterHandleCollection? parameters, int requiredCount)
         {
-            if(parameters == null || requiredCount == 0)
+            if (parameters == null || requiredCount == 0)
             {
                 return null;
             }
             string[] parameterNames = new string[requiredCount];
-            foreach(var handle in parameters)
+            foreach (var handle in parameters)
             {
                 Parameter parameter = Reader.GetParameter(handle);
-                if(parameter.SequenceNumber > 0 && parameter.SequenceNumber <= requiredCount)
+                if (parameter.SequenceNumber > 0 && parameter.SequenceNumber <= requiredCount)
                 {
                     parameterNames[parameter.SequenceNumber - 1] = Reader.GetString(parameter.Name);
                 }

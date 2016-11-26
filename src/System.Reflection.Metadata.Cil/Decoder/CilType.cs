@@ -2,19 +2,27 @@
 
 namespace System.Reflection.Metadata.Cil.Decoder
 {
+    public enum TypeType
+    {
+        Spec,
+        Def,
+        Ref
+    }
     public struct CilType
     {
-
         private StringBuilder _name;
         private bool _isValueType;
         private bool _isClassType;
+        public TypeType Type;
 
-        public CilType(string name, bool isValueType, bool isClassType)
+        public CilType(string name, bool isValueType, bool isClassType, int token = -1, TypeType type = TypeType.Def)
         {
             _name = new StringBuilder();
             _name.Append(name);
             _isValueType = isValueType;
             _isClassType = isClassType;
+            Token = token;
+            Type = type;
         }
 
         /// <summary>
@@ -49,6 +57,8 @@ namespace System.Reflection.Metadata.Cil.Decoder
                 return _isClassType;
             }
         }
+
+        public int Token { get; internal set; }
 
         /// <summary>
         /// Method that appends a string to the type while building it.
