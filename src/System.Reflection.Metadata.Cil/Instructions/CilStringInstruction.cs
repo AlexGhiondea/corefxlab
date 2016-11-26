@@ -4,22 +4,14 @@ using System.Reflection.Metadata.Cil.Visitor;
 
 namespace System.Reflection.Metadata.Cil.Instructions
 {
-    public class CilStringInstruction_InlineMethod : CilStringInstruction
-    {
-        public CilType ParentType { get; set; }
-        public CilStringInstruction_InlineMethod(OpCode opCode, string value, CilType type,  int token, int size, bool isPrintable = true)
-            : base(opCode, value, token, size, isPrintable)
-        {
-            ParentType = type;
-        }
-    }
-
     public class CilStringInstruction : CilInstructionWithValue<string>, ICilVisitable
     {
+        public CilType ParentType { get; set; }
         private readonly bool _isPrintable;
-        internal CilStringInstruction(OpCode opCode, string value, int token, int size, bool isPrintable = true)
+        internal CilStringInstruction(OpCode opCode, string value, int token, int size, CilType parentType, bool isPrintable = true)
             : base(opCode, value, token, size)
         {
+            ParentType = parentType;
             _isPrintable = isPrintable;
         }
 

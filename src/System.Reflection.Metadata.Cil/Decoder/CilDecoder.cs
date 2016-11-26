@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Reflection.Emit;
@@ -226,30 +227,33 @@ namespace System.Reflection.Metadata.Cil.Decoder
                     //The instruction size is the expected size (1 or 2 depending if it is a one or two byte instruction) + the size of the operand.
                     case OperandType.InlineField:
                         intOperand = ilReader.ReadInt32();
-                        string fieldInfo = GetFieldInformation(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, fieldInfo, intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        CilType fieldDeclaringType;
+                        string fieldInfo = GetFieldInformation(metadataReader, intOperand, provider, out fieldDeclaringType);
+                        instruction = new CilStringInstruction(opCode, fieldInfo, intOperand, expectedSize + (int)CilInstructionSize.Int32, fieldDeclaringType);
                         break;
                     case OperandType.InlineString:
                         intOperand = ilReader.ReadInt32();
                         bool isPrintable;
                         string str = GetArgumentString(metadataReader, intOperand, out isPrintable);
-                        instruction = new CilStringInstruction(opCode, str, intOperand, expectedSize + (int)CilInstructionSize.Int32, isPrintable);
+                        instruction = new CilStringInstruction(opCode, str, intOperand, expectedSize + (int)CilInstructionSize.Int32, CilType.Unknown, isPrintable);
                         break;
                     case OperandType.InlineMethod:
                         intOperand = ilReader.ReadInt32();
-                        string methodCall = SolveMethodName(metadataReader, intOperand, provider);
+                        CilType dummy;
+                        string methodCall = SolveMethodName(metadataReader, intOperand, provider, out dummy);
                         var parentType = GetParentType(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction_InlineMethod(opCode, methodCall, parentType, intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        instruction = new CilStringInstruction(opCode, methodCall, intOperand, expectedSize + (int)CilInstructionSize.Int32, parentType);
                         break;
                     case OperandType.InlineType:
                         intOperand = ilReader.ReadInt32();
-                        string type = GetTypeInformation(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, type, intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        var type = GetTypeInformation(metadataReader, intOperand, provider);
+                        instruction = new CilStringInstruction(opCode, type.ToString(), intOperand, expectedSize + (int)CilInstructionSize.Int32, type);
                         break;
                     case OperandType.InlineTok:
                         intOperand = ilReader.ReadInt32();
-                        string tokenType = GetInlineTokenType(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, tokenType, intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        CilType inlineTokenType;
+                        var tokenType = GetInlineTokenType(metadataReader, intOperand, provider, out inlineTokenType);
+                        instruction = new CilStringInstruction(opCode, tokenType, intOperand, expectedSize + (int)CilInstructionSize.Int32, inlineTokenType);
                         break;
                     case OperandType.InlineI:
                         instruction = new CilInt32Instruction(opCode, ilReader.ReadInt32(), -1, expectedSize + (int)CilInstructionSize.Int32);
@@ -288,7 +292,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
                         break;
                     case OperandType.InlineSig:
                         intOperand = ilReader.ReadInt32();
-                        instruction = new CilStringInstruction(opCode, GetSignature(metadataReader, intOperand, provider), intOperand, expectedSize + (int)CilInstructionSize.Int32);
+                        instruction = new CilStringInstruction(opCode, GetSignature(metadataReader, intOperand, provider), intOperand, expectedSize + (int)CilInstructionSize.Int32, CilType.Unknown);
                         break;
                     default:
                         break;
@@ -371,33 +375,34 @@ namespace System.Reflection.Metadata.Cil.Decoder
 
         }
 
-        private static string GetInlineTokenType(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
+        private static string GetInlineTokenType(MetadataReader metadataReader, int intOperand, CilTypeProvider provider, out CilType type)
         {
             if (IsMethodDefinition(intOperand) || IsMethodSpecification(intOperand) || IsMemberReference(intOperand))
             {
-                return "method " + SolveMethodName(metadataReader, intOperand, provider);
+                return "method " + SolveMethodName(metadataReader, intOperand, provider, out type);
             }
             if (IsFieldDefinition(intOperand))
             {
-                return "field " + GetFieldInformation(metadataReader, intOperand, provider);
+                return "field " + GetFieldInformation(metadataReader, intOperand, provider, out type);
             }
-            return GetTypeInformation(metadataReader, intOperand, provider);
+            type = GetTypeInformation(metadataReader, intOperand, provider);
+            return type.ToString();
         }
 
-        private static string GetTypeInformation(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
+        private static CilType GetTypeInformation(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
         {
             if (IsTypeReference(intOperand))
             {
                 var refHandle = MetadataTokens.TypeReferenceHandle(intOperand);
-                return SignatureDecoder.DecodeType(refHandle, provider, null).ToString();
+                return SignatureDecoder.DecodeType(refHandle, provider, null);
             }
             if (IsTypeSpecification(intOperand))
             {
                 var typeHandle = MetadataTokens.TypeSpecificationHandle(intOperand);
-                return SignatureDecoder.DecodeType(typeHandle, provider, null).ToString();
+                return SignatureDecoder.DecodeType(typeHandle, provider, null);
             }
             var defHandle = MetadataTokens.TypeDefinitionHandle(intOperand);
-            return SignatureDecoder.DecodeType(defHandle, provider, null).ToString();
+            return SignatureDecoder.DecodeType(defHandle, provider, null);
         }
 
         private static CilInstruction CreateSwitchInstruction(ref BlobReader ilReader, int expectedSize, int ilOffset, OpCode opCode)
@@ -448,21 +453,20 @@ namespace System.Reflection.Metadata.Cil.Decoder
             return signature.Header.IsInstance ? "instance " + returnTypeStr : returnTypeStr;
         }
 
-        private static string GetMemberRef(MetadataReader metadataReader, int token, CilTypeProvider provider, string genericParameterSignature = "")
+        private static string GetMemberRef(MetadataReader metadataReader, int token, CilTypeProvider provider, out CilType type, string genericParameterSignature = "")
         {
             var refHandle = MetadataTokens.MemberReferenceHandle(token);
             var reference = metadataReader.GetMemberReference(refHandle);
             var parentToken = MetadataTokens.GetToken(reference.Parent);
-            string type;
             if (IsTypeSpecification(parentToken))
             {
                 var typeSpecificationHandle = MetadataTokens.TypeSpecificationHandle(parentToken);
-                type = SignatureDecoder.DecodeType(typeSpecificationHandle, provider, null).ToString();
+                type = SignatureDecoder.DecodeType(typeSpecificationHandle, provider, null);
             }
             else
             {
                 var parentHandle = MetadataTokens.TypeReferenceHandle(parentToken);
-                type = SignatureDecoder.DecodeType(parentHandle, provider, null).ToString(false);
+                type = SignatureDecoder.DecodeType(parentHandle, provider, null);
             }
             string signatureValue;
             string parameters = string.Empty;
@@ -519,8 +523,9 @@ namespace System.Reflection.Metadata.Cil.Decoder
             return parentType;
         }
 
-        internal static string SolveMethodName(MetadataReader metadataReader, int token, CilTypeProvider provider)
+        internal static string SolveMethodName(MetadataReader metadataReader, int token, CilTypeProvider provider, out CilType type)
         {
+            type = CilType.Unknown;
             string genericParameters = string.Empty;
             if (IsMethodSpecification(token))
             {
@@ -531,7 +536,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
             }
             if (IsMemberReference(token))
             {
-                return GetMemberRef(metadataReader, token, provider, genericParameters);
+                return GetMemberRef(metadataReader, token, provider, out type, genericParameters);
             }
             var handle = MetadataTokens.MethodDefinitionHandle(token);
             var definition = metadataReader.GetMethodDefinition(handle);
@@ -539,8 +544,8 @@ namespace System.Reflection.Metadata.Cil.Decoder
             MethodSignature<CilType> signature = SignatureDecoder.DecodeMethodSignature(definition.Signature, provider);
             var returnType = GetMethodReturnType(signature);
             var parameters = provider.GetParameterList(signature);
-            var parentType = SignatureDecoder.DecodeType(parent, provider, null);
-            return string.Format("{0} {1}::{2}{3}{4}", returnType, parentType.ToString(false), GetString(metadataReader, definition.Name), genericParameters, parameters);
+            type = SignatureDecoder.DecodeType(parent, provider, null);
+            return string.Format("{0} {1}::{2}{3}{4}", returnType, type.ToString(false), GetString(metadataReader, definition.Name), genericParameters, parameters);
         }
 
         private static string GetGenericParametersSignature(MethodSpecification methodSpec, CilTypeProvider provider)
@@ -565,18 +570,18 @@ namespace System.Reflection.Metadata.Cil.Decoder
             return sb.ToString();
         }
 
-        private static string GetFieldInformation(MetadataReader metadataReader, int intOperand, CilTypeProvider provider)
+        private static string GetFieldInformation(MetadataReader metadataReader, int intOperand, CilTypeProvider provider, out CilType declaringType)
         {
             if (IsMemberReference(intOperand))
             {
-                return GetMemberRef(metadataReader, intOperand, provider);
+                return GetMemberRef(metadataReader, intOperand, provider, out declaringType);
             }
             var handle = MetadataTokens.FieldDefinitionHandle(intOperand);
             var definition = metadataReader.GetFieldDefinition(handle);
             var typeHandle = definition.GetDeclaringType();
-            var typeSignature = SignatureDecoder.DecodeType(typeHandle, provider, null);
+            declaringType = SignatureDecoder.DecodeType(typeHandle, provider, null);
             var signature = SignatureDecoder.DecodeFieldSignature(definition.Signature, provider);
-            return String.Format("{0} {1}::{2}", signature.ToString(), typeSignature.ToString(false), GetString(metadataReader, definition.Name));
+            return String.Format("{0} {1}::{2}", signature.ToString(), declaringType.ToString(false), GetString(metadataReader, definition.Name));
         }
 
         private static string GetString(MetadataReader metadataReader, StringHandle handle)

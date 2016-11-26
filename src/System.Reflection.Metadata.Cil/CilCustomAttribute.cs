@@ -42,7 +42,8 @@ namespace System.Reflection.Metadata.Cil
             {
                 if(_constructor == null)
                 {
-                    _constructor = CilDecoder.SolveMethodName(_readers.MdReader, MetadataTokens.GetToken(_attribute.Constructor), _readers.Provider);
+                    CilType parent;
+                    _constructor = CilDecoder.SolveMethodName(_readers.MdReader, MetadataTokens.GetToken(_attribute.Constructor), _readers.Provider, out parent);
                 }
                 return _constructor;
             }

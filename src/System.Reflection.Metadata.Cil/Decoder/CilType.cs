@@ -10,6 +10,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
     }
     public struct CilType
     {
+        public static readonly CilType Unknown = default(CilType);
         private StringBuilder _name;
         private bool _isValueType;
         private bool _isClassType;

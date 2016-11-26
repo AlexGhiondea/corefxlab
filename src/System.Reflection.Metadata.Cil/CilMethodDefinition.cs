@@ -422,6 +422,22 @@ namespace System.Reflection.Metadata.Cil
             signature.Append(Signature.ReturnType);
             return String.Format("{0}{1} {2}{3}{4} {5}", attributes, signature.ToString(), Name, GetGenericParametersString(), GetParameterListString(), GetImplementationFlags());
         }
+
+        public string MethodNameAndParameters()
+        {
+            StringBuilder sig = new StringBuilder();
+            if (!string.IsNullOrEmpty(DeclaringType.Namespace))
+            {
+                sig.Append(DeclaringType.Namespace);
+                sig.Append('.');
+            }
+
+            sig.Append(DeclaringType.Name);
+            sig.Append('.');
+
+            sig.AppendFormat("{0}{1}{2}", Name, GetGenericParametersString(), GetParameterListString());
+            return sig.ToString();
+        }
         
         /// <summary>
         /// Method that formats the Relative Virtual Address to it's hexadecimal representation.

@@ -662,8 +662,9 @@ namespace System.Reflection.Metadata.Cil.Visitor
             int token = methodDefinition.MethodDeclarationToken;
             if (CilDecoder.IsMemberReference(token))
             {
+                CilType parent;
                 _writer.Write("method ");
-                _writer.Write(CilDecoder.SolveMethodName(methodDefinition._readers.MdReader, token, methodDefinition.Provider));
+                _writer.Write(CilDecoder.SolveMethodName(methodDefinition._readers.MdReader, token, methodDefinition.Provider, out parent));
                 if (_options.ShowBytes)
                     _writer.Write(string.Format(" /* {0:X8} */", token));
                 _writer.WriteLine();
