@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Reflection.Metadata.Cil.Decoder;
 using System.Reflection.Metadata.Cil.Visitor;
-using System.Reflection.Metadata.Decoding;
+
 using System.Text;
 
 namespace System.Reflection.Metadata.Cil

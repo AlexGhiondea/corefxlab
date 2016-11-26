@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Reflection.Metadata.Decoding;
+
 using System.Text;
 
 namespace System.Reflection.Metadata.Cil.Decoder
@@ -193,25 +193,25 @@ namespace System.Reflection.Metadata.Cil.Decoder
             return elementType;
         }
 
-        public CilType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, SignatureTypeHandleCode code)
+        public CilType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte code)
         {
-            bool _isValueType = (code == SignatureTypeHandleCode.Class);
-            bool _isClass = (code == SignatureTypeHandleCode.ValueType);
+            bool _isValueType = (code == (byte)SignatureTypeHandleCode.Class);
+            bool _isClass = (code == (byte)SignatureTypeHandleCode.ValueType);
 
             CilType type = new CilType(GetFullName(Reader.GetTypeDefinition(handle)), _isValueType, _isClass);
             return type;
         }
 
-        public CilType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, SignatureTypeHandleCode code)
+        public CilType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte code)
         {
-            bool _isValueType = (code == SignatureTypeHandleCode.Class);
-            bool _isClass = (code == SignatureTypeHandleCode.ValueType);
+            bool _isValueType = (code == (byte)SignatureTypeHandleCode.Class);
+            bool _isClass = (code == (byte)SignatureTypeHandleCode.ValueType);
 
             CilType type = new CilType(GetFullName(Reader.GetTypeReference(handle)), _isValueType, _isClass);
             return type;
         }
 
-        public CilType GetTypeFromSpecification(MetadataReader reader, TypeSpecificationHandle handle, SignatureTypeHandleCode code)
+        public CilType GetTypeFromSpecification(MetadataReader reader, TypeSpecificationHandle handle, byte code)
         {
             return Reader.GetTypeSpecification(handle).DecodeSignature(this);
         }
@@ -335,6 +335,6 @@ namespace System.Reflection.Metadata.Cil.Decoder
             }
         }
 
-#endregion
+        #endregion
     }
 }

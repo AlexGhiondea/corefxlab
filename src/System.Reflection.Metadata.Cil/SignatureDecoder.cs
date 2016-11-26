@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Immutable;
 using System.Reflection.Metadata.Cil.Decoder;
-using System.Reflection.Metadata.Decoding;
+using System.Reflection.Metadata.Ecma335;
 
 namespace System.Reflection.Metadata.Cil
 {
@@ -12,7 +12,7 @@ namespace System.Reflection.Metadata.Cil
     {
         private static SignatureDecoder<CilType> NewDecoder(CilTypeProvider provider)
         {
-            return new SignatureDecoder<CilType>(provider, provider.Reader, SignatureDecoderOptions.DifferentiateClassAndValueTypes);
+            return new SignatureDecoder<CilType>(provider, provider.Reader);
         }
 
         internal static MethodSignature<CilType> DecodeMethodSignature(BlobHandle handle, CilTypeProvider provider)
@@ -27,7 +27,7 @@ namespace System.Reflection.Metadata.Cil
             return NewDecoder(provider).DecodeFieldSignature(ref blobReader);
         }
 
-       
+
         internal static ImmutableArray<CilType> DecodeLocalSignature(StandaloneSignatureHandle handle, CilTypeProvider provider)
         {
             var standaloneSignature = provider.Reader.GetStandaloneSignature(handle);
@@ -56,11 +56,11 @@ namespace System.Reflection.Metadata.Cil
             switch (handle.Kind)
             {
                 case HandleKind.TypeDefinition:
-                    return provider.GetTypeFromDefinition(provider.Reader, (TypeDefinitionHandle)handle, code);
+                    return provider.GetTypeFromDefinition(provider.Reader, (TypeDefinitionHandle)handle, (byte)code);
                 case HandleKind.TypeReference:
-                    return provider.GetTypeFromReference(provider.Reader, (TypeReferenceHandle)handle, code);
+                    return provider.GetTypeFromReference(provider.Reader, (TypeReferenceHandle)handle, (byte)code);
                 case HandleKind.TypeSpecification:
-                    return provider.GetTypeFromSpecification(provider.Reader, (TypeSpecificationHandle)handle, code);
+                    return provider.GetTypeFromSpecification(provider.Reader, (TypeSpecificationHandle)handle, (byte)code);
                 default:
                     throw new ArgumentException("Handle is not a type definition, reference, or specification.", nameof(handle));
             }
@@ -70,5 +70,24 @@ namespace System.Reflection.Metadata.Cil
         {
             return NewDecoder(provider).DecodeType(ref reader);
         }
+    }
+
+    public enum SignatureTypeHandleCode : byte
+    {
+        /// <summary>
+        /// It is not known in the current context if the type reference or definition is a class or value type.
+        /// This will be the case when <see cref="SignatureDecoderOptions.DifferentiateClassAndValueTypes"/> is not specified.
+        /// </summary>
+        Unresolved = 0,
+
+        /// <summary>
+        /// The type definition or reference refers to a class.
+        /// </summary>
+        Class = 0x12, // TODO: CorElementType.ELEMENT_TYPE_CLASS,
+
+        /// <summary>
+        /// The type definition or reference refers to a value type.
+        /// </summary>
+        ValueType = 0x11, // TODO: CorElementType.ELEMENT_TYPE_VALUETYPE,
     }
 }
