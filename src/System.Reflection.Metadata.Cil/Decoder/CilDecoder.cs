@@ -183,7 +183,10 @@ namespace System.Reflection.Metadata.Cil.Decoder
 
         public static IEnumerable<CilInstruction> DecodeMethodBody(CilMethodDefinition methodDefinition)
         {
-            return DecodeMethodBody(methodDefinition.IlReader, methodDefinition._readers.MdReader, methodDefinition.Provider, methodDefinition);
+            if (methodDefinition.MethodBody != null)
+                return DecodeMethodBody(methodDefinition.IlReader, methodDefinition._readers.MdReader, methodDefinition.Provider, methodDefinition);
+            else
+                return Enumerable.Empty<CilInstruction>();
         }
 
         #endregion
@@ -229,31 +232,31 @@ namespace System.Reflection.Metadata.Cil.Decoder
                         intOperand = ilReader.ReadInt32();
                         CilType fieldDeclaringType;
                         string fieldInfo = GetFieldInformation(metadataReader, intOperand, provider, out fieldDeclaringType);
-                        instruction = new CilStringInstruction(opCode, fieldInfo, intOperand, expectedSize + (int)CilInstructionSize.Int32, fieldDeclaringType);
+                        instruction = new CilStringInstructionWithParentType(opCode, fieldInfo, intOperand, expectedSize + (int)CilInstructionSize.Int32, fieldDeclaringType);
                         break;
                     case OperandType.InlineString:
                         intOperand = ilReader.ReadInt32();
                         bool isPrintable;
                         string str = GetArgumentString(metadataReader, intOperand, out isPrintable);
-                        instruction = new CilStringInstruction(opCode, str, intOperand, expectedSize + (int)CilInstructionSize.Int32, CilType.Unknown, isPrintable);
+                        instruction = new CilStringInstruction(opCode, str, intOperand, expectedSize + (int)CilInstructionSize.Int32, isPrintable);
                         break;
                     case OperandType.InlineMethod:
                         intOperand = ilReader.ReadInt32();
                         CilType dummy;
                         string methodCall = SolveMethodName(metadataReader, intOperand, provider, out dummy);
                         var parentType = GetParentType(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, methodCall, intOperand, expectedSize + (int)CilInstructionSize.Int32, parentType);
+                        instruction = new CilStringInstructionWithParentType(opCode, methodCall, intOperand, expectedSize + (int)CilInstructionSize.Int32, parentType);
                         break;
                     case OperandType.InlineType:
                         intOperand = ilReader.ReadInt32();
                         var type = GetTypeInformation(metadataReader, intOperand, provider);
-                        instruction = new CilStringInstruction(opCode, type.ToString(), intOperand, expectedSize + (int)CilInstructionSize.Int32, type);
+                        instruction = new CilStringInstructionWithParentType(opCode, type.ToString(), intOperand, expectedSize + (int)CilInstructionSize.Int32, type);
                         break;
                     case OperandType.InlineTok:
                         intOperand = ilReader.ReadInt32();
                         CilType inlineTokenType;
                         var tokenType = GetInlineTokenType(metadataReader, intOperand, provider, out inlineTokenType);
-                        instruction = new CilStringInstruction(opCode, tokenType, intOperand, expectedSize + (int)CilInstructionSize.Int32, inlineTokenType);
+                        instruction = new CilStringInstructionWithParentType(opCode, tokenType, intOperand, expectedSize + (int)CilInstructionSize.Int32, inlineTokenType);
                         break;
                     case OperandType.InlineI:
                         instruction = new CilInt32Instruction(opCode, ilReader.ReadInt32(), -1, expectedSize + (int)CilInstructionSize.Int32);
@@ -292,7 +295,7 @@ namespace System.Reflection.Metadata.Cil.Decoder
                         break;
                     case OperandType.InlineSig:
                         intOperand = ilReader.ReadInt32();
-                        instruction = new CilStringInstruction(opCode, GetSignature(metadataReader, intOperand, provider), intOperand, expectedSize + (int)CilInstructionSize.Int32, CilType.Unknown);
+                        instruction = new CilStringInstruction(opCode, GetSignature(metadataReader, intOperand, provider), intOperand, expectedSize + (int)CilInstructionSize.Int32);
                         break;
                     default:
                         break;

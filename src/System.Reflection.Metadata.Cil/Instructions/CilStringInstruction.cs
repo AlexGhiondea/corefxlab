@@ -6,12 +6,10 @@ namespace System.Reflection.Metadata.Cil.Instructions
 {
     public class CilStringInstruction : CilInstructionWithValue<string>, ICilVisitable
     {
-        public CilType ParentType { get; set; }
         private readonly bool _isPrintable;
-        internal CilStringInstruction(OpCode opCode, string value, int token, int size, CilType parentType, bool isPrintable = true)
+        internal CilStringInstruction(OpCode opCode, string value, int token, int size, bool isPrintable = true)
             : base(opCode, value, token, size)
         {
-            ParentType = parentType;
             _isPrintable = isPrintable;
         }
 
@@ -27,6 +25,15 @@ namespace System.Reflection.Metadata.Cil.Instructions
         {
             visitor.Visit(this);
         }
+    }
 
+    public class CilStringInstructionWithParentType : CilStringInstruction
+    {
+        public CilStringInstructionWithParentType(OpCode opCode, string value, int token, int size, CilType parentType, bool isPrintable = true)
+            : base(opCode, value, token, size)
+        {
+            ParentType = parentType;
+        }
+        public CilType ParentType { get; set; }
     }
 }
